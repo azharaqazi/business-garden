@@ -31,6 +31,35 @@ body.theme-dark .book-meta,body.theme-dark .hint,body.theme-dark .location{color
 .readerbar button{color:#203e36;background:#fffdf5;border-color:#526a5e}
 body.theme-dark .readerbar button{color:#f4f4e6;background:#294435;border-color:#b8c8ae}
 body.theme-dark .readerbar button:hover{background:#3c5a49}
+
+/* Keep the complete spread and its controls inside the reading viewport. */
+@media screen{
+ html,body{height:100%;overflow:hidden}
+ body{height:100dvh;display:flex;flex-direction:column}
+ .topbar{width:100%;flex:0 0 auto;padding-top:12px;padding-bottom:12px}
+ main{width:100%;max-width:1520px;flex:1;min-height:0;display:flex;flex-direction:column;padding:10px 24px 8px;overflow:hidden}
+ .book-meta{flex:0 0 auto;margin-bottom:7px}
+ .book-stage{flex:1;min-height:0;position:relative;width:100%;overflow:hidden}
+ .book-stage>.book{position:absolute;left:50%;top:0;width:1200px;transform:translateX(-50%) scale(var(--book-fit,1));transform-origin:top center}
+ .book-stage .spread{display:grid;grid-template-columns:1fr 1fr;min-height:680px}
+ .book-stage .page{min-height:680px;padding:38px 42px 60px;border-radius:0}
+ .book-stage .page:first-child{border-radius:5px 0 0 5px}
+ .book-stage .page:last-child{border-radius:0 14px 14px 0}
+ .book-stage .page.visual-page.art-page{height:auto;min-height:680px}
+ .book-stage .art-page img{min-height:0}
+ .book-stage .hero-page h1{font-size:68px}
+ .book-stage .visual-page .garden-chapter-title{font-size:53px}
+ .book-stage h2{font-size:40px}
+ .book-stage .page-foot{left:42px;right:42px}
+ .readerbar{position:static;flex:0 0 auto;margin:8px 0 0;padding:8px 12px;gap:12px}
+ .readerbar button{padding:7px 14px;min-width:120px;font-size:12px}
+ .hint{flex:0 0 auto;margin:5px 0 0;font-size:9px}
+ .location input{margin-top:7px}
+ .drawer{max-height:100dvh}
+ @media(max-height:650px){.topbar{padding-top:7px;padding-bottom:7px}.brandmark{font-size:29px}.hint{display:none}.book-meta{font-size:8px}.readerbar{margin-top:4px}}
+ @media(max-width:700px){main{padding:7px 10px}.topbar{padding:10px}.topnote{display:none}.readerbar button{min-width:42px}.book-stage .page:first-child:after{display:block}.hint{font-size:8px}}
+}
+@media print{.book-stage{display:block!important;overflow:visible!important}.book-stage>.book{position:static!important;transform:none!important;width:auto!important;height:auto!important}}
 </style></head>
 <body>
 <header class="topbar"><a href="#cover" id="home" class="brand"><span class="brandmark">✳</span><span>THE BUSINESS<br><b>GARDEN</b></span></a><span class="topnote">THE COMPLETE ILLUSTRATED EDITION</span><div class="tools"><button id="contentsBtn" aria-label="Open chapter library">☷ <span>Chapters</span></button><button id="searchBtn" aria-label="Search all lessons">⌕ <span>Search</span></button><button id="marksBtn" aria-label="Show bookmarked pages">♧ <span>Saved</span></button><button id="deeperBtn" aria-label="Open complete lesson notes">▤ <span>Notes</span></button><button id="settingsBtn" aria-label="Reading settings">Aa</button></div></header>
@@ -172,6 +201,7 @@ recallStarts[c.id]=pages.length+18;
 approved.forEach((p,i)=>add({kind:i===0?'art':i===1?'intro':i===18?'recall':i===19?'practice':'visual',chapter:c.id,title:p.topic,html:p.html,visualClass:p.cls}));
 }
 </script><script id="reader-app">'use strict';
+let bookFitFrame=0;
 let bookTemplate=document.documentElement.cloneNode(true);
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem('garden-'+key))??fallback}catch{return fallback}};
@@ -215,8 +245,8 @@ marks=marks.map(m=>/^p\d+$/.test(m)?pages[Number(m.slice(1))]?.id:m).filter(Bool
 let hit=location.hash.match(/^#spread-(\d+)$/);if(hit)current=Math.min(Number(hit[1]),maxSpread);if(location.hash==='#cover')current=0;
 function pageHTML(p){let c=BOOK.find(c=>c.id===p.chapter);let content=p.html||`<div class="eyebrow">${esc(p.tag)} · ${String(p.part).padStart(2,'0')}</div><div class="readbody">${p.blocks.map(blockHTML).join('')}</div>`;const classes=p.visualClass!==undefined?'visual-page '+p.visualClass:(['revision','recall'].includes(p.kind)?'revision-page':'');return `<article class="page ${classes}"><button class="save-page ${marks.includes(p.id)?'saved':''}" data-save="${p.id}" aria-label="${marks.includes(p.id)?'Remove bookmark':'Bookmark page'}" aria-pressed="${marks.includes(p.id)}">♧</button>${content}${p.visualClass==='art-page'?'':`<div class="page-foot"><span>${esc(c?.tag||'THE BUSINESS GARDEN')}</span><span>${String(p.index+1).padStart(3,'0')}</span></div>`}</article>`;}
 function applySettings(){document.documentElement.style.setProperty('--font',settings.size+'px');document.documentElement.style.setProperty('--body-size',settings.size+'px');document.body.classList.toggle('theme-dark',settings.dark)}
-function render(dir){$('#spread').className='spread '+(dir>0?'turn-forward':dir<0?'turn-back':'');$('#spread').innerHTML=pages.slice(current*2,current*2+2).map(pageHTML).join('');$('#position').textContent=`SPREAD ${current+1} OF ${maxSpread+1} · ${Math.round(current/maxSpread*100)}%`;$('#progress').max=maxSpread;$('#progress').value=current;$('#prev').disabled=current===0;$('#next').disabled=current===maxSpread;let p=pages[current*2],c=BOOK.find(c=>c.id===p.chapter);$('#crumb').textContent=c?`${c.kind==='technical'?c.tag:'WEEK '+String(c.week).padStart(2,'0')} / ${c.title}`:'THE STUDY COLLECTION · JULY—NOVEMBER 2026';$('#chapterProgress').textContent=c?.hook||'OPEN A NEW CHAPTER';for(const el of document.querySelectorAll('[data-check]'))el.checked=!!checks[el.dataset.check];for(const el of document.querySelectorAll('[data-note]'))el.value=notes[el.dataset.note]||'';updateGardenTools();write('place',current);write('placeId',pages[current*2].id);history.replaceState(null,'','#spread-'+current);document.title=pages[current*2].title+' · The Business Garden';}
-function go(s){const next=Math.max(0,Math.min(maxSpread,s));let dir=next-current;let leaf=dir?$('#spread').children[dir>0?1:0]?.cloneNode(true):null;current=next;render(dir);if(leaf){let flip=document.createElement('div');flip.setAttribute('aria-hidden','true');flip.inert=true;flip.className='turning-leaf '+(dir<0?'reverse':'');flip.appendChild(leaf);$('#book').appendChild(flip);setTimeout(()=>flip.remove(),600)}window.scrollTo({top:0,behavior:'instant'});}
+function render(dir){$('#spread').className='spread '+(dir>0?'turn-forward':dir<0?'turn-back':'');$('#spread').innerHTML=pages.slice(current*2,current*2+2).map(pageHTML).join('');$('#position').textContent=`SPREAD ${current+1} OF ${maxSpread+1} · ${Math.round(current/maxSpread*100)}%`;$('#progress').max=maxSpread;$('#progress').value=current;$('#prev').disabled=current===0;$('#next').disabled=current===maxSpread;let p=pages[current*2],c=BOOK.find(c=>c.id===p.chapter);$('#crumb').textContent=c?`${c.kind==='technical'?c.tag:'WEEK '+String(c.week).padStart(2,'0')} / ${c.title}`:'THE STUDY COLLECTION · JULY—NOVEMBER 2026';$('#chapterProgress').textContent=c?.hook||'OPEN A NEW CHAPTER';for(const el of document.querySelectorAll('[data-check]'))el.checked=!!checks[el.dataset.check];for(const el of document.querySelectorAll('[data-note]'))el.value=notes[el.dataset.note]||'';updateGardenTools();write('place',current);write('placeId',pages[current*2].id);history.replaceState(null,'','#spread-'+current);document.title=pages[current*2].title+' · The Business Garden';scheduleBookFit();}
+function go(s){const next=Math.max(0,Math.min(maxSpread,s));let dir=next-current;let leaf=dir?$('#spread').children[dir>0?1:0]?.cloneNode(true):null;current=next;render(dir);if(leaf){let flip=document.createElement('div');flip.setAttribute('aria-hidden','true');flip.inert=true;flip.className='turning-leaf '+(dir<0?'reverse':'');flip.appendChild(leaf);$('#book').appendChild(flip);setTimeout(()=>flip.remove(),600)}scheduleBookFit();}
 function gotoPage(n){close();go(Math.floor(n/2));}
 function notify(t){$('#toast').textContent=t;$('#toast').classList.add('show');setTimeout(()=>$('#toast').classList.remove('show'),1800)}
 function open(title,body){$('#drawerTitle').textContent=title;$('#drawerBody').innerHTML=body;$('#drawer').hidden=false;$('#shade').hidden=false;$('#closeDrawer').focus()}
@@ -239,4 +269,30 @@ function printIllustratedBook(){
  for(let i=0;i<pages.length;i+=2){$('#spread').innerHTML=pages.slice(i,i+2).map(pageHTML).join('');updateGardenTools();all.push($('#spread').innerHTML)}
  $('#spread').innerHTML=all.join('');document.body.classList.add('print-book');document.querySelectorAll('.flashcard').forEach(d=>d.open=true);window.print();document.body.classList.remove('print-book');render(0);
 }
+
+// Measure the actual spread so long pages and expanded recall cards remain visible.
+
+function scheduleBookFit(){
+ cancelAnimationFrame(bookFitFrame);
+ bookFitFrame=requestAnimationFrame(fitBookToScreen);
+}
+function fitBookToScreen(){
+ if(window.matchMedia('print').matches)return;
+ const book=$('#book');if(!book)return;
+ let stage=$('#bookStage');
+ if(!stage){stage=document.createElement('div');stage.id='bookStage';stage.className='book-stage';book.before(stage);stage.appendChild(book);}
+ const spread=$('#spread');if(!spread||!stage.clientHeight)return;
+ const width=1200;
+ book.style.width=width+'px';
+ const height=Math.max(680,spread.offsetHeight,...Array.from(spread.children,p=>p.scrollHeight));
+ const scale=Math.min((stage.clientWidth-12)/width,(stage.clientHeight-12)/height,1.25);
+ book.style.setProperty('--book-fit',Math.max(.1,scale));
+ book.style.top=Math.max(0,(stage.clientHeight-height*scale)/2)+'px';
+}
+window.addEventListener('resize',scheduleBookFit);
+window.visualViewport?.addEventListener('resize',scheduleBookFit);
+document.addEventListener('toggle',scheduleBookFit,true);
+document.fonts?.ready.then(scheduleBookFit);
+new ResizeObserver(scheduleBookFit).observe($('#spread'));
+scheduleBookFit();
 </script></body></html>
